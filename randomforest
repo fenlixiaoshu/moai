@@ -1,0 +1,69 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import LabelEncoder
+from sklearn.tree import plot_tree
+import matplotlib.pyplot as plt
+
+# 加载数据集
+df = pd.read_csv('/kaggle/input/decisiontree/Decision Tree.csv')
+
+# 去除重复数据
+df = df.drop_duplicates()
+
+# 提取特征和目标变量
+X = df.drop('Drug', axis=1)
+y = df['Drug']
+
+# 对 object 类型数据进行编码
+categorical_cols = X.select_dtypes(include=['object']).columns
+for col in categorical_cols:
+    le = LabelEncoder()
+    X[col] = le.fit_transform(X[col])
+
+# 划分训练集和测试集
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+# 创建随机森林分类器
+#n_estimators 表示随机森林中决策树的数量。这里将其设置为 100，意味着随机森林将由 100 棵决策树组成。
+#max_depth 用于限制每棵决策树的最大深度。这里设置为 5
+#min_samples_leaf 表示每个叶子节点（即决策树的最终分类节点）所需的最小样本数。这里设置为 5，意味着每个叶子节点至少需要包含 5 个样本。小于5个就不会再分裂。
+rf_clf = RandomForestClassifier(n_estimators=100, max_depth=5, min_samples_leaf=5, random_state=42)
+
+# 进行交叉验证
+cv_scores = cross_val_score(rf_clf, X_train, y_train, cv=5)
+print(f'交叉验证平均准确率: {cv_scores.mean()}')
+
+# 在训练集上训练模型
+rf_clf.fit(X_train, y_train)
+# 在测试集上进行预测
+y_pred = rf_clf.predict(X_test)
+
+# 计算准确率
+accuracy = accuracy_score(y_test, y_pred)
+# 计算精确率，平均方式为 'weighted' 以处理多分类问题
+precision = precision_score(y_test, y_pred, average='weighted')
+# 计算召回率，平均方式为 'weighted' 以处理多分类问题
+recall = recall_score(y_test, y_pred, average='weighted')
+# 计算 F1 分数，平均方式为 'weighted' 以处理多分类问题
+f1 = f1_score(y_test, y_pred, average='weighted')
+
+print(f'模型准确率: {accuracy}')
+print(f'模型精确率: {precision}')
+print(f'模型召回率: {recall}')
+print(f'模型 F1 分数: {f1}')
+
+# 可视化随机森林中的一棵树（可选）
+plt.figure(figsize=(20, 15))
+estimator = rf_clf.estimators_[0]  # 选择第一棵树进行可视化
+plot_tree(estimator, feature_names=X.columns, class_names=rf_clf.classes_, filled=True, rounded=True)
+plt.title('First Tree in Random Forest for Drug Classification')
+plt.savefig('random_forest_tree.png')
+plt.show()
+# Age <= 30 。这表明在该节点处，模型会依据 Age 这个特征的值来对数据进行划分。
+#gini越趋向于0，意味着该节点中的样本大部分属于同一类别
+#samples表示该节点中包含的样本数量。
+#value = [20, 30, 50] ，就表示该节点中第一类有 20 个样本，第二类有 30 个样本，第三类有 50 个样本
+# class显示该叶子节点所预测的类别。
+
